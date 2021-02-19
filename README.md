@@ -1,4 +1,4 @@
-# Dicecode
+# dicecord
 
 bare-bones dice-rolling discord bot.
 
