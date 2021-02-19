@@ -7,7 +7,7 @@ const TOKEN = process.env.DISCORD_TOKEN;
 function roll(s) {
   s = s.replace(/\s+/g, "");
   // parse command
-  let command = s.match(/^(\d*)d(\d+)(k\d+)?([\+\-]\d+)?/);
+  let command = s.match(/^(\d*)d(\d+)(k-?\d+)?([\+\-]\d+)?/);
   // no command found? we are done
   if (!command) return `sorry, I didn't quite get that`;
   let [full, count, sides, keep, mod] = command;
@@ -21,8 +21,15 @@ function roll(s) {
     return "whose side are you on?";
   }
   // determine how many dice to keep
+  let keepMode = "best";
   if (keep) {
-    keep = parseInt(keep.slice(1), 10) || count;
+    if (keep.startsWith("k")) {
+      keep = parseInt(keep.slice(1), 10) || count;
+      if (keep < 0) {
+        keepMode = "worst";
+        keep = Math.abs(keep);
+      }
+    }
   } else {
     keep = count;
   }
@@ -41,14 +48,18 @@ function roll(s) {
   // keep what we need
   if (keep < count) {
     for (let i = count; i > keep; i--) {
-      let lowest = null;
+      let toDrop = null;
       for (let roll of rolls) {
         if (!roll.keep) continue;
-        if (!lowest || roll.value < lowest.value) {
-          lowest = roll;
+        if (
+          !toDrop ||
+          (keepMode === "best" && roll.value < toDrop.value) ||
+          (keepMode === "worst" && roll.value > toDrop.value)
+        ) {
+          toDrop = roll;
         }
       }
-      lowest.keep = false;
+      toDrop.keep = false;
     }
   }
 
@@ -63,7 +74,7 @@ function roll(s) {
 
   // format the result
   let out = `(${rolls
-    .map((r) => (r.keep ? r.value : `~~${r.value}~~`))
+    .map(r => (r.keep ? r.value : `~~${r.value}~~`))
     .join(" + ")})`;
   if (mod) out += mod < 0 ? " - " + Math.abs(mod) : " + " + mod;
   out += ` = **${sum}**`;
@@ -77,7 +88,7 @@ client.on("ready", () => {
   );
 });
 
-client.on("message", (msg) => {
+client.on("message", msg => {
   if (msg.content.startsWith("/r ")) {
     try {
       let result = roll(msg.content.slice(3));
